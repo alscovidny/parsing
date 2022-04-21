@@ -8,9 +8,6 @@ import requests
 client = MongoClient('mongodb://localhost:27017')
 
 db = client['hh_parsing_database']['data']
-
-h = hashlib.new('sha256') # - нововведение: _id будем генерировать с помощью алгоритма sha256
-
 headers = {'user-agent' : 'Mozilla/5.0 (Windows NT 6.3; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)'}
 pattern = 'https://hh.ru'
 count = 0
@@ -22,7 +19,7 @@ while is_next_page:
         if count >= N:
             break
 
-    time.sleep(1)
+    time.sleep(0.1)
     r = requests.get(is_next_page, headers=headers)
     if r.status_code == 200:
         print(f'успешный доступ к странице {count + 1}')
@@ -43,9 +40,6 @@ while is_next_page:
         vacancy_data['вакансия'] = vacancy.text
         vacancy_data['ссылка'] = vacancy.get('href')
 
-        h.update(vacancy_data['ссылка'].encode('utf-8'))  # нововведение - даём id для объекта
-        vacancy_data['_id'] = h.hexdigest()               # _id определяем с помощью хэширования
-
         vacancy_data['минимальная ЗП'] = None
         vacancy_data['максимальная ЗП'] = None
         vacancy_data['валюта'] = None
@@ -61,6 +55,7 @@ while is_next_page:
                 vacancy_data['минимальная ЗП'] = int(cash_list[0])
                 vacancy_data['максимальная ЗП'] = int(cash_list.pop())
 
+        vacancy_data['_id'] = hashlib.sha1(vacancy_data['ссылка'].encode('utf-8')).hexdigest()
         # начало фрагмента заполнения БД
         try:
             db.insert_one(vacancy_data)
