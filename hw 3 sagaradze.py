@@ -1,5 +1,4 @@
 from pymongo import MongoClient
-from pprint import pprint
 from pymongo.errors import DuplicateKeyError
 import hashlib
 from bs4 import BeautifulSoup as bs
@@ -10,17 +9,12 @@ client = MongoClient('mongodb://localhost:27017')
 
 db = client['hh_parsing_database']['data']
 
-
-
-h = hashlib.new('sha256') # - нововведение
+h = hashlib.new('sha256') # - нововведение: _id будем генерировать с помощью алгоритма sha256
 
 headers = {'user-agent' : 'Mozilla/5.0 (Windows NT 6.3; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)'}
 pattern = 'https://hh.ru'
 count = 0
 N = int(input('Введите количество страниц, которое хотите распарсить (0 если парсить все): '))
-
-# with open('parsed.json', 'w', encoding='utf-8') as f:
-#     f.write('стартовая ссылка:\nhttps://hh.ru/vacancies/khimik?page=0&hhtmFrom=vacancy_search_catalog\n\n')
 
 is_next_page = 'https://hh.ru/vacancies/khimik?page=0&hhtmFrom=vacancy_search_catalog'
 while is_next_page:
@@ -46,14 +40,11 @@ while is_next_page:
         vacancy = info_full.find('a', attrs={'data-qa' : 'vacancy-serp__vacancy-title'})
         vacancy_cash = info_full.find('span', attrs={'data-qa' : 'vacancy-serp__vacancy-compensation'})
 
-        # нововведение - даём id для объекта
-
         vacancy_data['вакансия'] = vacancy.text
         vacancy_data['ссылка'] = vacancy.get('href')
-        #
-        h.update(vacancy_data['ссылка'].encode('utf-8'))
-        vacancy_data['_id'] = h.hexdigest()# - попробовать кодировать чисто по ссылке?
-        #
+
+        h.update(vacancy_data['ссылка'].encode('utf-8'))  # нововведение - даём id для объекта
+        vacancy_data['_id'] = h.hexdigest()               # _id определяем с помощью хэширования
 
         vacancy_data['минимальная ЗП'] = None
         vacancy_data['максимальная ЗП'] = None
@@ -70,17 +61,10 @@ while is_next_page:
                 vacancy_data['минимальная ЗП'] = int(cash_list[0])
                 vacancy_data['максимальная ЗП'] = int(cash_list.pop())
 
+        # начало фрагмента заполнения БД
         try:
             db.insert_one(vacancy_data)
         except DuplicateKeyError:
             pass
-
-        # with open('parsed.json', 'a', encoding='utf-8') as f:
-        #     json.dump(vacancy_data, f, indent=4, ensure_ascii=False)
-
+        # окончание фрагмента заполнения БД
     count += 1
-
-print(client.list_database_names())
-
-for doc in db.find():
-    pprint(doc)
