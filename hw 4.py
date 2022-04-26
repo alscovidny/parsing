@@ -13,23 +13,47 @@ header = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.3; Win64; x64) AppleWebKit/53
 response = requests.get(url, headers=header)
 dom = html.fromstring(response.text)
 
-main_table = dom.xpath("//[contains(@class, 'js-topnews__item')]/@href")
-# main_table = dom.xpath("//div[@class, 'js-module']")
+# main_table = dom.xpath("//a[contains(@class, 'js-topnews__item')]/@href")
+main_tag = dom.xpath("//div[contains(@data-counter-type, 'topmail')]")[0]
 
-for ref in href_list:
+l = main_tag
 
-    response = requests.get(ref, headers=header)
-    dom = html.fromstring(response.text)
-    cur_path = dom.xpath("//div[contains(@class, 'breadcrumbs_article')]")
+main_table = l.xpath("./*//div[@class ='js-module']/*//a[contains(@class, 'js-topnews__item')]/@href")
+main_undertable = l.xpath("./*//div[@class ='js-module']/*//a[contains(@class, 'list__text')]/@href")
 
-    news = {}
-    news['_id'] = hashlib.sha1(ref.encode('utf_8')).hexdigest()
-    news['дата публикации'] = str(*cur_path[0].xpath("./*//span[contains(@class, 'js-ago')]/@datetime")).split('T')[0]
-    news['источник'] = cur_path[0].xpath("./*//span[contains(@class, 'link__text')]/text()")[0]
-    news['заголовок'] = str(*cur_path[0].xpath("./../*//h1[contains(@class, 'hdr__inner')]/text()"))
-    news['ссылка'] = ref
+# main_topics = l.xpath("./../*//div[contains(@data-logger, 'news__MainRubricNews')]/*"
+#                       "//div[@class='cols__wrapper']/*"
+#                       "//a[contains(@class, 'link')]/@href")
 
-    try:
-        db.insert_one(news)
-    except DuplicateKeyError:
-        pass
+region_topics_news = l.xpath("./../*//div[contains(@data-logger, 'news__MainRegionNews')"
+                        "or contains(@data-logger, 'news__MainRubricNews')]/*"
+                      "//div[@class='cols__wrapper']/*"
+                      "//a[contains(@class, 'link')]/@href")
+
+all_news = main_table + main_undertable + region_topics_news
+
+# /*//a[@contains(@class, 'link')]/@href
+# //div[@data-logger='news__MainRubricNews']/*
+# div[@class='cols__wrapper']/*//
+#
+# print(main_table)
+# print(main_undertable)
+print(region_topics_news)
+#
+# for ref in href_list:
+#
+#     response = requests.get(ref, headers=header)
+#     dom = html.fromstring(response.text)
+#     cur_path = dom.xpath("//div[contains(@class, 'breadcrumbs_article')]")
+#
+#     news = {}
+#     news['_id'] = hashlib.sha1(ref.encode('utf_8')).hexdigest()
+#     news['дата публикации'] = str(*cur_path[0].xpath("./*//span[contains(@class, 'js-ago')]/@datetime")).split('T')[0]
+#     news['источник'] = cur_path[0].xpath("./*//span[contains(@class, 'link__text')]/text()")[0]
+#     news['заголовок'] = str(*cur_path[0].xpath("./../*//h1[contains(@class, 'hdr__inner')]/text()"))
+#     news['ссылка'] = ref
+#
+#     try:
+#         db.insert_one(news)
+#     except DuplicateKeyError:
+#         pass
