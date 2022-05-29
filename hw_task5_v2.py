@@ -8,30 +8,127 @@ from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import StaleElementReferenceException
 import pprint
 import hashlib
+from bs4 import BeautifulSoup
+import requests
+import json
+import pickle
 
-links = []
+requests.get
 
-url ="https://account.mail.ru/login"
+def autorization():
+    url = "https://account.mail.ru/login"
+    driver = webdriver.Firefox(executable_path='./geckodriver.exe')
+    driver.set_window_size(1000, 600)
+    driver.get(url)
+    WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.XPATH, "//input[contains(@name, 'username')]")))
+    driver.find_element(By.XPATH, "//input[contains(@name, 'username')]").send_keys('study.ai_172@mail.ru')
+    driver.find_element(By.XPATH, "//button[@type='submit']").click()
+    WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.XPATH, "//input[contains(@name, 'password')]")))
+    driver.find_element(By.XPATH, "//input[contains(@name, 'password')]").send_keys('NextPassword172#')
+    driver.find_element(By.XPATH, "//button[@type='submit']").click()
+    WebDriverWait(driver, 30).until(
+        EC.presence_of_element_located((By.XPATH, "//div/a[contains(@class, 'new-selection')]")))
+    # pickle.dump(driver.get_cookies(), open("cookies.pkl", "wb"))
 
-driver = webdriver.Firefox(executable_path='./geckodriver.exe')
-driver.set_window_size(1000, 800)
-driver.get(url)
-WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.XPATH, "//input[contains(@name, 'username')]")))
-driver.find_element(By.XPATH, "//input[contains(@name, 'username')]").send_keys('study.ai_172@mail.ru')
-driver.find_element(By.XPATH,"//button[@type='submit']").click()
+    return driver
 
-WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.XPATH, "//input[contains(@name, 'password')]")))
-driver.find_element(By.XPATH, "//input[contains(@name, 'password')]").send_keys('NextPassword172#')
+def collection_links():
 
-driver.find_element(By.XPATH,"//button[@type='submit']").click()
-WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.XPATH, "//div/a[contains(@class, 'new-selection')]")))
+    links = []
+    ActionChains(driver).send_keys(Keys.ARROW_DOWN).perform()
+    time.sleep(0.5)
 
-start_elements = driver.find_elements(By.XPATH, "//div/a[contains(@class, 'new-selection')]")
-time.sleep(3)
+    # ActionChains(driver).send_keys(Keys.ARROW_DOWN).perform()
+    # time.sleep(0.5)
+    # last_elem = driver.find_element(By.XPATH, "//div/a[contains(@class, 'new-selection')]").get_attribute('href')
+    # end = 0
+    # start = time.time()
+    # while (end - start) < 5:
+    for j in range(2):
 
-for el in start_elements:
-    if el.get_attribute('href'):
-        links.append(el.get_attribute('href'))
+        # try:
+        #   new_last_elem = driver.find_element(By.XPATH, "//div/a[contains(@class, 'new-selection')]").get_attribute('href')
+        # except StaleElementReferenceException:
+        #   time.sleep(0.5)
+        #   new_last_elem = driver.find_element(By.XPATH, "//div/a[contains(@class, 'new-selection')]").get_attribute('href')
+        time.sleep(1)
+        start_elements = driver.find_elements(By.XPATH, "//div/a[contains(@class, 'new-selection')]")
+        for el in start_elements:
+            if el.get_attribute('href') and el.get_attribute('href') not in links:
+                links.append(el.get_attribute('href'))
+        ActionChains(driver).send_keys(Keys.PAGE_DOWN).perform()
+        #     if last_elem != new_last_elem:
+        #         last_elem = new_last_elem
+        #         start = time.time()
+        #     ActionChains(driver).send_keys(Keys.PAGE_DOWN).perform()
+        #     time.sleep(0.05)
+        #     # print(j)
+        #
+        #     end = time.time()
+        #     # if start:
+        #     print(end - start)
+
+
+    return links
+
+driver = autorization()
+# cookies = pickle.load(open("cookies.pkl", "rb"))
+links = collection_links()
+
+# for cookie in cookies:
+#     for key, item in cookie.items():
+#         # key = str(key)
+#         cookie[key] = str(item)
+
+
+headers = {'User-Agent' : 'Mozilla/5.0 (Windows NT 6.3; Win64; x64; rv:100.0) Gecko/20100101 Firefox/100.0'}
+
+
+driver.quit()
+
+
+#
+# 'domain': '.e.mail.ru',
+#   'expiry': 1661604648,
+#   'httpOnly': True,
+#   'name': 'sdcs',
+#   'path': '/',
+#   'sameSite': 'None',
+#   'secure': True,
+#   'value': 'IpXri75foGlvx98R'
+url = links[0]
+r = requests.get(url,
+                 headers=headers,
+                 cookies={'domain': 'https://e.mail.ru',
+                          'expiry': '1661604648',
+                          'httpOnly': 'True',
+                          'name': 'sdcs',
+                          'path': '/',
+                          'sameSite': 'None',
+                          'secure': 'True',
+                          'value': 'IpXri75foGlvx98R'
+}
+                 )
+
+soup = BeautifulSoup(r.text, 'html.parser').find_all('div')
+for elem in soup:
+    print(elem.text)
+
+# print(soup)
+#
+
+
+
+# print(r.text)
+# with open('file.html', 'wt', encoding='utf-8') as f:
+#     f.write(r.text)
+#
+# # pprint.pprint(links)
+# print(len(links))
+# print(len(set(links)))
+# time.sleep(3)
+#
+
 
 # if переменна:
 #     start time
@@ -42,32 +139,32 @@ for el in start_elements:
 # print("hello")
 # end = time.time()
 # print(end - start)
+###################################
 
-
-ActionChains(driver).send_keys(Keys.ARROW_DOWN).perform()
-last_elem = driver.find_element(By.XPATH, "//div/a[contains(@class, 'new-selection')]").get_attribute('href')
-end = 0
-start = time.time()
-while (end - start) < 5:
-
-    try:
-        new_last_elem = driver.find_element(By.XPATH, "//div/a[contains(@class, 'new-selection')]").get_attribute('href')
-    except StaleElementReferenceException:
-        time.sleep(0.5)
-        new_last_elem = driver.find_element(By.XPATH, "//div/a[contains(@class, 'new-selection')]").get_attribute('href')
-
-    if last_elem != new_last_elem:
-        last_elem = new_last_elem
-        start = time.time()
-    ActionChains(driver).send_keys(Keys.PAGE_DOWN).perform()
-    time.sleep(0.05)
-    # print(j)
-
-    end = time.time()
-    # if start:
-    print(end - start)
-
-print(len(driver.find_elements(By.XPATH, "//div/a[contains(@class, 'new-selection')]")))
+# ActionChains(driver).send_keys(Keys.ARROW_DOWN).perform()
+# last_elem = driver.find_element(By.XPATH, "//div/a[contains(@class, 'new-selection')]").get_attribute('href')
+# end = 0
+# start = time.time()
+# while (end - start) < 5:
+#
+#     try:
+#         new_last_elem = driver.find_element(By.XPATH, "//div/a[contains(@class, 'new-selection')]").get_attribute('href')
+#     except StaleElementReferenceException:
+#         time.sleep(0.5)
+#         new_last_elem = driver.find_element(By.XPATH, "//div/a[contains(@class, 'new-selection')]").get_attribute('href')
+#
+#     if last_elem != new_last_elem:
+#         last_elem = new_last_elem
+#         start = time.time()
+#     ActionChains(driver).send_keys(Keys.PAGE_DOWN).perform()
+#     time.sleep(0.05)
+#     # print(j)
+#
+#     end = time.time()
+#     # if start:
+#     print(end - start)
+#
+# print(len(driver.find_elements(By.XPATH, "//div/a[contains(@class, 'new-selection')]")))
 
 # ActionChains(driver).send_keys(Keys.END).perform()
 # element = start_elements[1]
