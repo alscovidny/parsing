@@ -35,7 +35,6 @@ def autorization():
 
     url = "https://account.mail.ru/login"
     driver = webdriver.Firefox(executable_path='./geckodriver.exe', options=options)
-    # driver = webdriver.Firefox(executable_path='./geckodriver.exe')
     driver.set_window_size(600, 600)
     driver.get(url)
 
@@ -58,44 +57,44 @@ def autorization():
     return driver
 
 def collection_links(driver):
-    # with open('links.txt', 'wt', encoding='utf-8')
-    links = []
-    # time.sleep(0.5)
-    find_elem = driver.find_element(By.XPATH, "//div/a[contains(@class, 'new-selection')]")
-    ActionChains(driver).click_and_hold(find_elem).perform()
-    ActionChains(driver).send_keys(Keys.ARROW_DOWN).perform()
-    last_elem = find_elem.get_attribute('href')
-    end = 0
-    start = time.time()
-    while (end - start) < 15:
-        try:
-            new_last_elem = driver.find_element(By.XPATH, "//div/a[contains(@class, 'new-selection')]").get_attribute('href')
-        except StaleElementReferenceException:
-            time.sleep(0.2)
-            new_last_elem = driver.find_element(By.XPATH, "//div/a[contains(@class, 'new-selection')]").get_attribute('href')
-        time.sleep(1)
-        start_elements = driver.find_elements(By.XPATH, "//div/a[contains(@class, 'new-selection')]")
-        for el in start_elements:
-            if el.get_attribute('href') and el.get_attribute('href') not in links:
-                links.append(el.get_attribute('href'))
-        if last_elem != new_last_elem:
-            last_elem = new_last_elem
-            start = time.time()
-        ActionChains(driver).send_keys(Keys.PAGE_DOWN).perform()
-        time.sleep(0.05)
-        end = time.time()
+    with open('links.txt', 'wt', encoding='utf-8') as f:
+        links = []
+        find_elem = driver.find_element(By.XPATH, "//div/a[contains(@class, 'new-selection')]")
+        ActionChains(driver).click_and_hold(find_elem).perform()
+        ActionChains(driver).send_keys(Keys.ARROW_DOWN).perform()
+        last_elem = find_elem.get_attribute('href')
+        end = 0
+        start = time.time()
+        prev_start_elements = [] #массив предыдущих элементов. для предотвращения повторного сканирования крайних элементов
+        while (end - start) < 15:
+            try:
+                new_last_elem = driver.find_element(By.XPATH, "//div/a[contains(@class, 'new-selection')]").get_attribute('href')
+            except StaleElementReferenceException:
+                time.sleep(0.2)
+                new_last_elem = driver.find_element(By.XPATH, "//div/a[contains(@class, 'new-selection')]").get_attribute('href')
+            time.sleep(1)
+            start_elements = driver.find_elements(By.XPATH, "//div/a[contains(@class, 'new-selection')]")
+            for el in start_elements:
+                if el.get_attribute('href') and el.get_attribute('href') not in prev_start_elements:
+                    f.write(el.get_attribute('href') + '\n')
+            if last_elem != new_last_elem:
+                last_elem = new_last_elem
+                start = time.time()
+            ActionChains(driver).send_keys(Keys.PAGE_DOWN).perform()
+            time.sleep(0.05)
+            end = time.time()
+            prev_start_elements = start_elements
 
-    return links
-
-def read_message(url):
-
+def read_message(url, driver):
     try:
         driver.get(url)
         WebDriverWait(driver, 30).until(
             EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'letter__body')]")))
         time.sleep(0.5)
     except:
+        driver.get(url)
         driver.refresh()
+        # driver.get(url)
         WebDriverWait(driver, 30).until(
             EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'letter__body')]")))
         time.sleep(0.5)
@@ -126,30 +125,35 @@ def read_message(url):
             'text' : text_message
     }
 
+def read_first_N(N=10):
+    with open('links.txt', 'rt', encoding='utf-8') as f:
+        driver = autorization()
+        j = 0
+        for line in f: # стремился сделать так, чтобы работало по принципу чтения в виде генератора
+            if j >= N:
+                break
+            data = read_message(line.strip(), driver)
+            j += 1
+            try:
+                db.insert_one(data)
+            except DuplicateKeyError:
+                pass
+            print(f'обработано сообщений: {j}. Время: {datetime.datetime.now()}')
+            # реконнект, чтобы не тормозилось в процессе выполнения при парсинге большого количества ссылок
+            if j % 100 == 0:
+                driver.quit()
+                driver = autorization()
+
+        driver.quit()
+
 driver = autorization()
 print('Выполнена авторизация')
 print('Идёт сбор страниц....')
-links = collection_links(driver)
+collection_links(driver) # функция собирает все ссылки на сообщения
+driver.quit()
 print('Страницы собраны')
 print(datetime.datetime.now())
+read_first_N()
 
-# with open('links.json', 'rt', encoding='utf-8') as f:
-#     links = json.load(f)
-#
-# links = links[1:10]
-
-j = 1
-for link in links:
-    data = read_message(link)
-    print(f'обработано сообщений: {j}. Время: {datetime.datetime.now()}')
-    j+=1
-    try:
-        db.insert_one(data)
-    except DuplicateKeyError:
-        pass
-
-# with open('links.json', 'wt', encoding='utf-8') as f:
-#     json.dump(links, f, indent=4)
-driver.quit()
 print('Выполнение успешно завершено')
 print(datetime.datetime.now())
